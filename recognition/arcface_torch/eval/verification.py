@@ -37,6 +37,23 @@ from scipy import interpolate
 from sklearn.decomposition import PCA
 from sklearn.model_selection import KFold
 
+import openvino.runtime as ov
+
+def setup_openvino_runtime(
+    ov_ir_path: str = "openvino_files/mobilefacenet_glint360k_112x112_openvino_float.xml",
+):
+    core = ov.Core()
+    model = core.read_model(ov_ir_path)
+    compiled_model = core.compile_model(model, "CPU")
+    return compiled_model
+
+def perform_ov_inference(model, tensor):
+    infer_request = model.create_infer_request()
+    infer_request.set_input_tensor(0, tensor)
+    res = infer_request.infer()
+    op = infer_request.get_output_tensor().data
+    return op
+
 
 class LFold:
     def __init__(self, n_splits=2, shuffle=False):
@@ -93,6 +110,9 @@ def calculate_roc(thresholds,
             _, _, acc_train[threshold_idx] = calculate_accuracy(
                 threshold, dist[train_set], actual_issame[train_set])
         best_threshold_index = np.argmax(acc_train)
+        # print all thresholds and corresponding accuracies for this fold
+        #print('thresholds', thresholds)
+            
         for threshold_idx, threshold in enumerate(thresholds):
             tprs[fold_idx, threshold_idx], fprs[fold_idx, threshold_idx], _ = calculate_accuracy(
                 threshold, dist[test_set],
@@ -226,6 +246,7 @@ def load_bin(path, image_size):
 @torch.no_grad()
 def test(data_set, backbone, batch_size, nfolds=10):
     print('testing verification..')
+    compiled_model = setup_openvino_runtime()
     data_list = data_set[0]
     issame_list = data_set[1]
     embeddings_list = []
@@ -240,8 +261,11 @@ def test(data_set, backbone, batch_size, nfolds=10):
             _data = data[bb - batch_size: bb]
             time0 = datetime.datetime.now()
             img = ((_data / 255) - 0.5) / 0.5
-            net_out: torch.Tensor = backbone(img)
-            _embeddings = net_out.detach().cpu().numpy()
+            img = img.numpy()
+            img = ov.Tensor(img)
+            _embeddings = perform_ov_inference(compiled_model, img)
+            #net_out: torch.Tensor = backbone(img)
+            #_embeddings = net_out.detach().cpu().numpy()
             time_now = datetime.datetime.now()
             diff = time_now - time0
             time_consumed += diff.total_seconds()

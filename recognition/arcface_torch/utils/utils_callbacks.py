@@ -25,13 +25,15 @@ class CallBackVerification(object):
         self.summary_writer = summary_writer
         self.wandb_logger = wandb_logger
 
-    def ver_test(self, backbone: torch.nn.Module, global_step: int):
+    def ver_test(self, backbone:torch.nn.Module=None, global_step: int=0):
         results = []
         for i in range(len(self.ver_list)):
             acc1, std1, acc2, std2, xnorm, embeddings_list = verification.test(
                 self.ver_list[i], backbone, 10, 10)
-            logging.info('[%s][%d]XNorm: %f' % (self.ver_name_list[i], global_step, xnorm))
-            logging.info('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (self.ver_name_list[i], global_step, acc2, std2))
+            #logging.info('[%s][%d]XNorm: %f' % (self.ver_name_list[i], global_step, xnorm))
+            #logging.info('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (self.ver_name_list[i], global_step, acc2, std2))
+            print('[%s][%d]XNorm: %f' % (self.ver_name_list[i], global_step, xnorm))
+            print('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (self.ver_name_list[i], global_step, acc2, std2))
 
             self.summary_writer: SummaryWriter
             self.summary_writer.add_scalar(tag=self.ver_name_list[i], scalar_value=acc2, global_step=global_step, )
@@ -46,8 +48,9 @@ class CallBackVerification(object):
 
             if acc2 > self.highest_acc_list[i]:
                 self.highest_acc_list[i] = acc2
-            logging.info(
-                '[%s][%d]Accuracy-Highest: %1.5f' % (self.ver_name_list[i], global_step, self.highest_acc_list[i]))
+            #logging.info(
+            #    '[%s][%d]Accuracy-Highest: %1.5f' % (self.ver_name_list[i], global_step, self.highest_acc_list[i]))
+            print('[%s][%d]Accuracy-Highest: %1.5f' % (self.ver_name_list[i], global_step, self.highest_acc_list[i]))
             results.append(acc2)
 
     def init_dataset(self, val_targets, data_dir, image_size):
